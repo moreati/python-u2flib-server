@@ -59,19 +59,28 @@ class MetadataResolver(object):
             self._identifiers[metadata.identifier] = metadata
             self._index(metadata)
 
+    @staticmethod
+    def _name_key(name):
+        """Returns a dictionary key based on a certificate name attribute."""
+        return name.as_text()
+
     def _index(self, metadata):
         for cert_pem in metadata.trustedCertificates:
             cert_der = ''.join(cert_pem.splitlines()[1:-1]).decode('base64')
             cert = X509.load_cert_der_string(cert_der)
-            subject = cert.get_subject().as_text()
+            subject = self._name_key(cert.get_subject())
             if subject not in self._certs:
                 self._certs[subject] = []
             self._certs[subject].append(cert)
             self._metadata[cert] = metadata
 
+    @staticmethod
+    def _verify(cert, issuer_cert):
+        return bool(cert.verify(issuer_cert.get_pubkey()) == 1)
+
     def resolve(self, cert):
-        for issuer in self._certs.get(cert.get_issuer().as_text(), []):
-            if cert.verify(issuer.get_pubkey()) == 1:
+        for issuer in self._certs.get(self._name_key(cert.get_issuer()), []):
+            if self._verify(cert, issuer):
                 return self._metadata[issuer]
         return None
 

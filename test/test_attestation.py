@@ -48,18 +48,16 @@ DUzSk3HgOXbUd1FaSOPdlVFkG2N2JllFHykyO3zO
 
 class AttestationTest(unittest.TestCase):
 
+    attestation_cert = X509.load_cert_der_string(ATTESTATION_CERT)
+
     def test_resolver(self):
         resolver = create_resolver(YUBICO)
-        cert = X509.load_cert_der_string(ATTESTATION_CERT)
-
-        metadata = resolver.resolve(cert)
+        metadata = resolver.resolve(self.attestation_cert)
         assert metadata.identifier == '2fb54029-7613-4f1d-94f1-fb876c14a6fe'
 
     def test_provider(self):
         provider = MetadataProvider()
-        cert = X509.load_cert_der_string(ATTESTATION_CERT)
-        attestation = provider.get_attestation(cert)
-
+        attestation = provider.get_attestation(self.attestation_cert)
         assert attestation.trusted
 
     def test_versioning_newer(self):
@@ -70,8 +68,7 @@ class AttestationTest(unittest.TestCase):
 
         resolver.add_metadata(newer)
 
-        cert = X509.load_cert_der_string(ATTESTATION_CERT)
-        metadata = resolver.resolve(cert)
+        metadata = resolver.resolve(self.attestation_cert)
 
         assert metadata is None
 
@@ -82,7 +79,6 @@ class AttestationTest(unittest.TestCase):
 
         resolver.add_metadata(newer)
 
-        cert = X509.load_cert_der_string(ATTESTATION_CERT)
-        metadata = resolver.resolve(cert)
+        metadata = resolver.resolve(self.attestation_cert)
 
         assert metadata.identifier == '2fb54029-7613-4f1d-94f1-fb876c14a6fe'
