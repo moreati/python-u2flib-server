@@ -31,12 +31,17 @@ from base64 import urlsafe_b64decode, urlsafe_b64encode
 from hashlib import sha256
 import os
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+
+
 PUB_KEY_DER_PREFIX = "3059301306072a8648ce3d020106082a8648ce3d030107034200" \
     .decode('hex')
 
 
 def pub_key_from_der(der):
-    return EC.pub_key_from_der(PUB_KEY_DER_PREFIX + der)
+    pub_der_info = PUB_KEY_DER_PREFIX + der
+    return serialization.load_der_public_key(pub_der_info, default_backend())
 
 
 def websafe_decode(data):

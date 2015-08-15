@@ -25,10 +25,13 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+
 from u2flib_server.attestation.metadata import MetadataProvider
 from u2flib_server.attestation.resolvers import create_resolver
 from u2flib_server.attestation.data import YUBICO
-from M2Crypto import X509
+
 import json
 import unittest
 
@@ -48,7 +51,10 @@ DUzSk3HgOXbUd1FaSOPdlVFkG2N2JllFHykyO3zO
 
 class AttestationTest(unittest.TestCase):
 
-    attestation_cert = X509.load_cert_der_string(ATTESTATION_CERT)
+    attestation_cert = x509.load_der_x509_certificate(
+        ATTESTATION_CERT,
+        default_backend(),
+    )
 
     def test_resolver(self):
         resolver = create_resolver(YUBICO)

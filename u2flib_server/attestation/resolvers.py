@@ -27,7 +27,12 @@
 
 __all__ = ['MetadataResolver', 'create_resolver']
 
-from M2Crypto import X509
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+
+import M2Crypto.X509
+
 from u2flib_server.jsapi import MetadataObject
 from u2flib_server.attestation.data import YUBICO
 import os
@@ -62,24 +67,34 @@ class MetadataResolver(object):
     @staticmethod
     def _name_key(name):
         """Returns a dictionary key based on a certificate name attribute."""
-        return name.as_text()
+        # TODO There must be a better way
+        return tuple((attr.oid.dotted_string, attr.value) for attr in name)
 
     def _index(self, metadata):
         for cert_pem in metadata.trustedCertificates:
             cert_der = ''.join(cert_pem.splitlines()[1:-1]).decode('base64')
-            cert = X509.load_cert_der_string(cert_der)
-            subject = self._name_key(cert.get_subject())
+            cert = x509.load_der_x509_certificate(cert_der, default_backend())
+            subject = self._name_key(cert.subject)
             if subject not in self._certs:
                 self._certs[subject] = []
             self._certs[subject].append(cert)
             self._metadata[cert] = metadata
 
+    # FIXME This is the only remaining use of M2Crypto
     @staticmethod
     def _verify(cert, issuer_cert):
-        return bool(cert.verify(issuer_cert.get_pubkey()) == 1)
+        # Serialize from cryptography.x509 objects
+        cert_der = cert.public_bytes(serialization.Encoding.DER)
+        issuer_cert_der = issuer_cert.public_bytes(serialization.Encoding.DER)
+
+        # Deserialize as M2Crypto.X509 objects
+        cert_m2c = M2Crypto.X509.load_cert_der_string(cert_der)
+        issuer_cert_m2c = M2Crypto.X509.load_cert_der_string(issuer_cert_der)
+
+        return bool(cert_m2c.verify(issuer_cert_m2c.get_pubkey()) == 1)
 
     def resolve(self, cert):
-        for issuer in self._certs.get(self._name_key(cert.get_issuer()), []):
+        for issuer in self._certs.get(self._name_key(cert.issuer), []):
             if self._verify(cert, issuer):
                 return self._metadata[issuer]
         return None

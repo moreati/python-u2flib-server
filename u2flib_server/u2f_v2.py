@@ -25,7 +25,12 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from M2Crypto import X509
+from cryptography import x509
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+
 from u2flib_server.jsapi import (RegisterRequest, RegisterResponse,
                                  SignRequest, SignResponse, DeviceRegistration)
 from u2flib_server.utils import (pub_key_from_der, sha_256, websafe_decode,
@@ -79,28 +84,35 @@ class RawRegistrationResponse(object):
         self.key_handle = data[:kh_len]
         data = data[kh_len:]
 
-        self.certificate = self._fixsig(X509.load_cert_der_string(data))
-        self.signature = data[len(self.certificate.as_der()):]
+        certificate = x509.load_der_x509_certificate(data, default_backend())
+        # TODO Encoding the certificate we've just decoded seems ass backwards
+        cert_der = certificate.public_bytes(serialization.Encoding.DER)
+        self.certificate = self._fixsig(certificate)
+        self.signature = data[len(cert_der):] # TODO This seems ass backwards
 
     def __str__(self):
         return self.data.encode('hex')
 
+    # TODO Is this named correctly?
+    #      Does csr stand for Certificate Signing Request?
     def verify_csr_signature(self):
         data = chr(0x00) + self.app_param + self.chal_param + \
             self.key_handle + self.pub_key
-        pubkey = self.certificate.get_pubkey()
-        pubkey.reset_context('sha256')
-        pubkey.verify_init()
-        pubkey.verify_update(data)
-        if not pubkey.verify_final(self.signature) == 1:
+        pub_key = self.certificate.public_key()
+        verifier = pub_key.verifier(self.signature, ec.ECDSA(hashes.SHA256()))
+        verifier.update(data)
+        try:
+            verifier.verify()
+        except InvalidSignature:
             raise Exception('Attestation signature verification failed!')
 
     def _fixsig(self, cert):
-        subject = cert.get_subject().as_text()
+        cn = cert.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0]
+        subject = 'CN=%s' % (cn.value,)
         if subject in FIXSIG:  # Set unused bits in signature to 0
-            der = list(cert.as_der())
+            der = bytearray(cert.public_bytes(serialization.Encoding.DER))
             der[-257] = chr(0)
-            cert = X509.load_cert_der_string(''.join(der))
+            cert = x509.load_der_x509_certificate(der, default_backend())
         return cert
 
     def serialize(self):
@@ -136,9 +148,12 @@ class RawAuthenticationResponse(object):
     def verify_signature(self, pubkey):
         data = self.app_param + self.user_presence + self.counter + \
             self.chal_param
-        digest = sha_256(data)
         pub_key = pub_key_from_der(pubkey)
-        if not pub_key.verify_dsa_asn1(digest, self.signature) == 1:
+        verifier = pub_key.verifier(self.signature, ec.ECDSA(hashes.SHA256()))
+        verifier.update(data)
+        try:
+            verifier.verify()
+        except InvalidSignature:
             raise Exception('Challenge signature verification failed!')
 
     def serialize(self):
