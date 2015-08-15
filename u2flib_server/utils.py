@@ -26,7 +26,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-from M2Crypto import EC, Rand
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from hashlib import sha256
 import os
@@ -61,8 +60,5 @@ def sha_256(data):
     return h.digest()
 
 
-Rand.rand_seed(os.urandom(1024))
-
-
 def rand_bytes(n_bytes):
-    return Rand.rand_bytes(n_bytes)
+    return os.urandom(n_bytes)
