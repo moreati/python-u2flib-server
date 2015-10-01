@@ -1,7 +1,6 @@
 * Version 4.0.0 (not yet released)
  ** Major release: Changed backend from M2Crypto to cryptography
  ** Added: dependency on cryptography 1.0 or higher
- ** Removed: dependency on PyASN and PyASN-modules
  ** For now M2Crypto is still needed for verifying issuer certificates
  ** utils.rand_bytes() now sources bytes from os.urandom()
 

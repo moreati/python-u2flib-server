@@ -26,7 +26,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from cryptography import x509
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
+
+from pyasn1.codec.der import decoder
+from pyasn1_modules import rfc2459
 
 __all__ = [
     'DeviceMatcher',
@@ -53,12 +56,14 @@ class FingerprintMatcher(DeviceMatcher):
 
 
 def get_ext_by_oid(cert, oid):
-    oid = x509.ObjectIdentifier(oid)
-    try:
-        ext = cert.extensions.get_extension_for_oid(oid)
-    except x509.ExtensionNotFound:
-        return None
-    return ext.value
+    # This is needed until cryptography supports reading custom extensions,
+    # see https://github.com/pyca/cryptography/issues/2288
+    cert_der = cert.public_bytes(serialization.Encoding.DER)
+    cert, _ = decoder.decode(cert_der, asn1Spec=rfc2459.Certificate())
+    for ext in cert['tbsCertificate']['extensions']:
+        if ext['extnID'].prettyPrint() == oid:
+            return decoder.decode(ext['extnValue'])[0].asOctets()
+    return None
 
 
 class ExtensionMatcher(DeviceMatcher):
