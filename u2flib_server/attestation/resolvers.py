@@ -82,6 +82,13 @@ class MetadataResolver(object):
     # FIXME This is the only remaining use of M2Crypto
     @staticmethod
     def _verify(cert, issuer_cert):
+        """Returns True if cert contains a correct signature made using the
+        private key for issuer_cert
+
+        NB: This *only* checks the signature. No other checks are performed,
+        e.g. the trust chain of the issuer_cert is not checked,
+        neither certificate is checked for expiry, etc.
+        """
         # Serialize from cryptography.x509 objects
         cert_der = cert.public_bytes(serialization.Encoding.DER)
         issuer_cert_der = issuer_cert.public_bytes(serialization.Encoding.DER)
