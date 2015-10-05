@@ -72,8 +72,7 @@ class MetadataResolver(object):
 
     def _index(self, metadata):
         for cert_pem in metadata.trustedCertificates:
-            cert_der = ''.join(cert_pem.splitlines()[1:-1]).decode('base64')
-            cert = x509.load_der_x509_certificate(cert_der, default_backend())
+            cert = x509.load_pem_x509_certificate(cert_pem, default_backend())
             subject = self._name_key(cert.subject)
             if subject not in self._certs:
                 self._certs[subject] = []
