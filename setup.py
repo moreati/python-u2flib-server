@@ -37,7 +37,6 @@ setup(
     url='https://github.com/Yubico/python-u2flib-server',
     install_requires=[
         'cryptography>=1.0',
-        'M2Crypto',
         'pyasn1>=0.1.7',
         'pyasn1-modules',
     ],

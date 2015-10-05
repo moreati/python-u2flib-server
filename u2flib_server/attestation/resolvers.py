@@ -28,10 +28,12 @@
 __all__ = ['MetadataResolver', 'create_resolver']
 
 from cryptography import x509
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import asymmetric, serialization
 
-import M2Crypto.X509
+from pyasn1.codec.der import decoder, encoder
+from pyasn1_modules import rfc2459
 
 from u2flib_server.jsapi import MetadataObject
 from u2flib_server.attestation.data import YUBICO
@@ -79,9 +81,34 @@ class MetadataResolver(object):
             self._certs[subject].append(cert)
             self._metadata[cert] = metadata
 
-    # FIXME This is the only remaining use of M2Crypto
     @staticmethod
-    def _verify(cert, issuer_cert):
+    def _bitstring_bytes(bitstring):
+        """Returns the raw bytes in a pyasn1 BitString
+        """
+        bits = ''.join(str(bit) for bit in bitstring)
+        byte_size_bits = [bits[n:n+8] for n in range(0, len(bits), 8)]
+        return bytes(bytearray(int(chunk, 2) for chunk in byte_size_bits))
+
+    @staticmethod
+    def _verifier(pubkey, sig, sig_hash_algorithm):
+        """Returns a suitable cryptography AsymmetricVerificationContext
+        instance
+        """
+        if isinstance(pubkey, asymmetric.ec.EllipticCurvePublicKey):
+            ec_sig_algorithm = asymmetric.ec.EllipticCurveSignatureAlgorithm(
+                sig_hash_algorithm,
+            )
+            return pubkey.verifier(sig, ec_sig_algorithm)
+
+        elif isinstance(pubkey, asymmetric.dsa.DSAPublicKey):
+            backend = default_backend()
+            return pubkey.verifier(sig, sig_hash_algorithm, backend)
+
+        elif isinstance(pubkey, asymmetric.rsa.RSAPublicKey):
+            padding = asymmetric.padding.PKCS1v15()
+            return pubkey.verifier(sig, padding, sig_hash_algorithm)
+
+    def _verify(self, cert, issuer_cert):
         """Returns True if cert contains a correct signature made using the
         private key for issuer_cert
 
@@ -91,13 +118,23 @@ class MetadataResolver(object):
         """
         # Serialize from cryptography.x509 objects
         cert_der = cert.public_bytes(serialization.Encoding.DER)
-        issuer_cert_der = issuer_cert.public_bytes(serialization.Encoding.DER)
 
-        # Deserialize as M2Crypto.X509 objects
-        cert_m2c = M2Crypto.X509.load_cert_der_string(cert_der)
-        issuer_cert_m2c = M2Crypto.X509.load_cert_der_string(issuer_cert_der)
+        # Deserialize as pyasn1_modules.rfc2459.Certificate
+        cert_asn, _ = decoder.decode(cert_der, asn1Spec=rfc2459.Certificate())
 
-        return bool(cert_m2c.verify(issuer_cert_m2c.get_pubkey()) == 1)
+        issuer_pubkey = issuer_cert.public_key()
+        cert_sig_bytes = self._bitstring_bytes(cert_asn['signatureValue'])
+        verifier = self._verifier(
+            issuer_pubkey,
+            cert_sig_bytes,
+            cert.signature_hash_algorithm,
+        )
+        verifier.update(encoder.encode(cert_asn['tbsCertificate']))
+        try:
+            verifier.verify()
+        except InvalidSignature:
+            return False
+        return True
 
     def resolve(self, cert):
         for issuer in self._certs.get(self._name_key(cert.issuer), []):
