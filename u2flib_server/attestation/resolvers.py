@@ -38,6 +38,8 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509.oid import NameOID
 
+import six
+
 
 class MetadataResolver(object):
 
@@ -111,7 +113,7 @@ def _add_data(resolver, data):
         for d in data:
             _add_data(resolver, d)
         return
-    elif isinstance(data, basestring):
+    elif isinstance(data, six.string_types):
         if os.path.isdir(data):
             data = _load_from_dir(data)
         elif os.path.isfile(data):

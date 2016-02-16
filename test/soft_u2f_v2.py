@@ -29,6 +29,7 @@ from u2flib_server.utils import (websafe_encode, websafe_decode,
                                  sha_256 as H, rand_bytes)
 from u2flib_server.jsapi import (RegisterRequest, RegisterResponse,
                                  SignRequest, SignResponse, ClientData)
+import base64
 import struct
 
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -39,7 +40,7 @@ from cryptography.hazmat.primitives import hashes
 
 CURVE = ec.SECP256R1
 
-CERT = """
+CERT = base64.b64decode("""
 MIIBhzCCAS6gAwIBAgIJAJm+6LEMouwcMAkGByqGSM49BAEwITEfMB0GA1UEAwwW
 WXViaWNvIFUyRiBTb2Z0IERldmljZTAeFw0xMzA3MTcxNDIxMDNaFw0xNjA3MTYx
 NDIxMDNaMCExHzAdBgNVBAMMFll1YmljbyBVMkYgU29mdCBEZXZpY2UwWTATBgcq
@@ -49,7 +50,7 @@ FgQUDai/k1dOImjupkubYxhOkoX3sZ4wHwYDVR0jBBgwFoAUDai/k1dOImjupkub
 YxhOkoX3sZ4wDAYDVR0TBAUwAwEB/zAJBgcqhkjOPQQBA0gAMEUCIFyVmXW7zlnY
 VWhuyCbZ+OKNtSpovBB7A5OHAH52dK9/AiEA+mT4tz5eJV8W2OwVxcq6ZIjrwqXc
 jXSy2G0k27yAUDk=
-""".decode('base64')
+""")
 
 CERT_PRIV = """
 -----BEGIN EC PRIVATE KEY-----

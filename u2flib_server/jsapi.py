@@ -28,6 +28,8 @@
 from u2flib_server.utils import websafe_decode, sha_256
 import json
 
+import six
+
 __all__ = [
     'ClientData',
     'DeviceRegistration',
@@ -50,7 +52,7 @@ class JSONDict(dict):
         else:
             raise TypeError("Wrong number of arguments given!")
 
-        if isinstance(data, basestring):
+        if isinstance(data, six.string_types):
             self.update(json.loads(data))
         elif isinstance(data, dict):
             self.update(data)

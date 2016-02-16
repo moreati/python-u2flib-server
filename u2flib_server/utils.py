@@ -34,11 +34,16 @@ from cryptography.hazmat.primitives.serialization import load_der_public_key
 from cryptography.x509.oid import NameOID
 
 from base64 import urlsafe_b64decode, urlsafe_b64encode
+import binascii
 from hashlib import sha256
 import os
 
-PUB_KEY_DER_PREFIX = "3059301306072a8648ce3d020106082a8648ce3d030107034200" \
-    .decode('hex')
+import six
+
+
+PUB_KEY_DER_PREFIX = binascii.unhexlify(
+    b"3059301306072a8648ce3d020106082a8648ce3d030107034200"
+)
 
 
 def certificate_from_der(der):
@@ -54,14 +59,14 @@ def pub_key_from_der(der):
 
 
 def websafe_decode(data):
-    if isinstance(data, unicode):
+    if isinstance(data, six.text_type):
         data = data.encode('utf-8')
-    data += '=' * (-len(data) % 4)
+    data += b'=' * (-len(data) % 4)
     return urlsafe_b64decode(data)
 
 
 def websafe_encode(data):
-    return urlsafe_b64encode(data).replace('=', '')
+    return urlsafe_b64encode(data).replace(b'=', b'')
 
 
 def sha_256(data):
